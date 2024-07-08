@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-import sys
-from re import search
+
 from tools import Snipe_Connection, pprint, get_unifi_snipe, get_unifi_unifi, Snipe_Asset, Unifi_Device, Composite_Device, CONFIG, Debug
 
 ###
@@ -47,8 +46,6 @@ def search_snipes_for_mac():
                                 "mac": unifi.mac,
                             })
                             match1 += 1
-                            unifi.in_snipe = True
-                            comp.exists_in_snipe = True
                             comp.needs_update = True
                             snipe.used = True
                             remove_snipes.add(snipe_index)
@@ -64,8 +61,6 @@ def search_snipes_for_mac():
                                 "mac": unifi.mac,
                             })
                             match2 += 1
-                            unifi.in_snipe = True
-                            comp.exists_in_snipe = True
                             comp.needs_update = False
                             snipe.used = True
                             remove_snipes.add(snipe_index)
@@ -92,7 +87,6 @@ def search_snipes_for_mac():
                         "mac": unifi.mac,
                     })
                     match3 += 1
-                    unifi.in_snipe = True
                     comp.needs_update = True
                     snipe.used = True
                     remove_snipes.add(snipe_index)
@@ -152,7 +146,7 @@ def search_snipes_for_mac():
     debug.debug("comps", len(comps))
     return comps
 
-
+# creates an asset(snipe) with the appropriate model and status
 def create_asset(model_id: int = 107, status_id: int = 4):
     debug.debug("creating new asset")
     c = CONFIG()
@@ -175,23 +169,8 @@ def create_asset(model_id: int = 107, status_id: int = 4):
         debug.debug("crashing in 'create_asset'")
         debug.debug(p)
         exit(1)
-###
-# takes a Unifi_Device and either finds an asset of the same model without a mac
-# or makes a new one of the appropriate type
-###
 
-def get_unique_models():
-    unifis = get_unifi_unifi()
-    models = []
-    devices = []
-    for unifi in unifis:
-        if unifi.model not in models:
-            models.append(unifi.model)
-            devices.append(unifi)
-    for d in devices:
-        debug.debug(d)
-
-def testing():
+def main():
     c = CONFIG()
     snipe_conn = Snipe_Connection(c.SNIPE_KEY, c.SNIPE_URL)
     comps = search_snipes_for_mac()
@@ -212,4 +191,4 @@ def testing():
     debug.debug(f"updated {update} devices")
 
 if __name__ == "__main__": 
-    testing()
+    main()

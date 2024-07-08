@@ -100,14 +100,6 @@ class Composite_Device:
         #     "name": "test_device",
         #     "model": "unifi_model"
         # }
-        ###
-        # does the device exist in snipe with a mac? If not, is there an asset
-        # of the same type that doesn't have a mac assigned yet?
-        ###
-        self.update_mac = False # Some functions make assumpitons about the default value here
-        self.exists_in_snipe = False
-        self.has_mac_in_snipe = False
-        self.empty_model_exists = False
         self.needs_update = False
         self.mac = data.get("mac", None)
         self.snipe_id = data.get("snipe_id", None)
@@ -132,22 +124,13 @@ class Composite_Device:
                 # if it's at any other site, it's deployed
                 self.status_id = 6
 
-        ###
-        # match model name from unifi to the corresponding model in snipe
-        # sets self.model_id to the appropriate asset_model_id
-        ### !!! this moved to the unifi device
         self.model_id = data["model_id"]
-
-### if exists in snipe, need to have the id here
-### self.name, take latest from unifi
-### self.status_label if site isn't default, status deployed
 
 class Snipe_Asset:
     def __init__(self, data):
         
         # Does this asset need to be updated in Snipe? default to false and
         # update the value later
-        self.update_asset = False
         self.used = False
 
         self.id = data["id"]
@@ -162,18 +145,7 @@ class Snipe_Asset:
         
         self.mac_address = data.get("custom_fields", {}).get("MAC Address", {}).get("value", None)
 
-        #if data["custom_fields"]["MAC Address"]["value"] is None:
-        #    self.mac_address = None
-        #
-        #else:
-        #    self.mac_address = data["custom_fields"]["MAC Address"]["value"]
-
         self.site = (data.get("custom_fields", {}).get("Site", {}).get("value", None))
-        #if data["custom_fields"]["Site"]["value"] is None:
-        #    self.site = None
-        #
-        #else:
-        #    self.site = data["custom_fields"]["Site"]["value"]
 
 class Unifi_Controller:
     def __init__(self, url: str, username: str, password: str):
@@ -273,7 +245,6 @@ class Unifi_Site:
 
 class Unifi_Device:
     def __init__(self, data):
-        self.in_snipe = False
         self.name = data["name"]
         self.mac = data["mac"].upper()
         self.site_name = data["site_name"]
@@ -335,8 +306,8 @@ class Unifi_Device:
             case _:
                 print("ERROR matching model_id, crashing")
                 pprint(data)
-                import pdb
-                pdb.set_trace()
+                #import pdb
+                #pdb.set_trace()
                 exit(1)
     def __str__(self):
         return f"name={self.name}\nmac={self.mac}\nsite_name={self.site_name}\ncontroller={self.controller}\nmodel={self.model}\n"
