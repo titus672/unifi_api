@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-
+import sys
 from re import search
-from tools import Snipe_Connection, pprint, get_unifi_snipe, get_unifi_unifi, Snipe_Asset, Unifi_Device, Composite_Device, CONFIG
+from tools import Snipe_Connection, pprint, get_unifi_snipe, get_unifi_unifi, Snipe_Asset, Unifi_Device, Composite_Device, CONFIG, Debug
 
 ###
 # this fn might get moved yet, not sure, but it takes a list of Snipe Assets
@@ -13,6 +13,7 @@ from tools import Snipe_Connection, pprint, get_unifi_snipe, get_unifi_unifi, Sn
 # "exists_in_snipe" flag at all in the Composite_Device object, but I'm leaving
 # it there for the moment.
 ###
+debug = Debug()
 def search_snipes_for_mac():
     unifis = get_unifi_unifi()
     snipes = get_unifi_snipe()
@@ -21,8 +22,8 @@ def search_snipes_for_mac():
     remove_unifis = set()
     empty_snipes: set[Snipe_Asset] = set()
     unassigned_unifs: set[Unifi_Device] = set()
-    print("unifis:",len(unifis))
-    print("snipes:", len(snipes))
+    debug.debug("unifis:", len(unifis))
+    debug.debug("snipes:", len(snipes))
     match1 = 0
     match2 = 0
     match3 = 0
@@ -30,83 +31,89 @@ def search_snipes_for_mac():
     match5 = 0
     for unifi_index, unifi in enumerate(unifis):
         for snipe_index, snipe in enumerate(snipes):
-            if snipe.mac_address is not None:
-                if snipe.mac_address == unifi.mac:
-                    # deal with matching macs
-                    # creates a comp device with the correct
-                    # metadata. It also removes the snipe and
-                    # unifi objects from their respective lists
-                    if snipe.site != unifi.site_name or snipe.name != unifi.name:
-                        comp = Composite_Device({
-                            "name": unifi.name,
-                            "snipe_id": snipe.id,
-                            "model_id": unifi.model_id,
-                            "site": unifi.site_name,
-                        })
-                        match1 += 1
-                        unifi.in_snipe = True
-                        comp.exists_in_snipe = True
-                        comp.needs_update = True
-                        remove_snipes.add(snipe_index)
-                        remove_unifis.add(unifi_index)
-                        comps.append(comp)
-                        break
-                    elif snipe.site == unifi.site_name and snipe.name == unifi.name:
-                        comp = Composite_Device({
-                            "name": unifi.name,
-                            "snipe_id": snipe.id,
-                            "model_id": unifi.model_id,
-                            "site": unifi.site_name,
-                        })
-                        match2 += 1
-                        unifi.in_snipe = True
-                        comp.exists_in_snipe = True
-                        comp.needs_update = False
-                        remove_snipes.add(snipe_index)
-                        remove_unifis.add(unifi_index)
-                        comps.append(comp)
-                        break
-                #elif snipe.mac_address != unifi.mac:
-                    # I think I can remove this one if I move all the logic to
-                    # this set of loops
-                #    ...
-                    #match5 += 1
-                    #empty_snipes.add(snipe)
-                    #unassigned_unifs.add(unifi)
-                #else:
-                #    print("Err stopping")
-                #    exit(1)
-            elif snipe.mac_address is None and snipe.model == unifi.model_id:
-                # logic to use empty_assets
-                comp = Composite_Device({
-                    "name": unifi.name,
-                    "snipe_id": snipe.id,
-                    "model_id": unifi.model_id,
-                    "site": unifi.site_name,
-                })
-                match3 += 1
-                comp.set_mac(unifi.mac)
-                unifi.in_snipe = True
-                comp.needs_update = True
-                remove_snipes.add(snipe_index)
-                remove_unifis.add(unifi_index)
-                comps.append(comp)
-            elif snipe.mac_address is None and snipe.model != unifi.model_id:
-                ## I think this is obsolete as well
-                # move device to different list
-                # this will move most of the unifis to the empty_snipes list
-                match4 += 1
-                empty_snipes.add(snipe)
-                unassigned_unifs.add(unifi)
-            else:
-                print("ERR parsing snipes, Crashing")
-                print(f"{snipe.id} {unifi.model}")
-                exit(1)
-        # the unifi doesn't have a snipe asset, need to create it
-        #for snipe in snipes:
-        #    print(snipe.name, snipe.id, snipe.model)
-    print("remove_snipes", len(remove_snipes))
-    print("remove_unifis", len(remove_unifis))
+            if snipe.used == False:
+                if snipe.mac_address is not None:
+                    if snipe.mac_address == unifi.mac:
+                        # deal with matching macs
+                        # creates a comp device with the correct
+                        # metadata. It also removes the snipe and
+                        # unifi objects from their respective lists
+                        if snipe.site != unifi.site_name or snipe.name != unifi.name:
+                            comp = Composite_Device({
+                                "name": unifi.name,
+                                "snipe_id": snipe.id,
+                                "model_id": unifi.model_id,
+                                "site": unifi.site_name,
+                                "mac": unifi.mac,
+                            })
+                            match1 += 1
+                            unifi.in_snipe = True
+                            comp.exists_in_snipe = True
+                            comp.needs_update = True
+                            snipe.used = True
+                            remove_snipes.add(snipe_index)
+                            remove_unifis.add(unifi_index)
+                            comps.append(comp)
+                            break
+                        elif snipe.site == unifi.site_name and snipe.name == unifi.name:
+                            comp = Composite_Device({
+                                "name": unifi.name,
+                                "snipe_id": snipe.id,
+                                "model_id": unifi.model_id,
+                                "site": unifi.site_name,
+                                "mac": unifi.mac,
+                            })
+                            match2 += 1
+                            unifi.in_snipe = True
+                            comp.exists_in_snipe = True
+                            comp.needs_update = False
+                            snipe.used = True
+                            remove_snipes.add(snipe_index)
+                            remove_unifis.add(unifi_index)
+                            comps.append(comp)
+                            break
+                    #elif snipe.mac_address != unifi.mac:
+                        # I think I can remove this one if I move all the logic to
+                        # this set of loops
+                    #    ...
+                        #match5 += 1
+                        #empty_snipes.add(snipe)
+                        #unassigned_unifs.add(unifi)
+                    #else:
+                    #    debug.debug("Err stopping")
+                    #    exit(1)
+                elif snipe.mac_address is None and snipe.model == unifi.model_id:
+                    # logic to use empty_assets
+                    comp = Composite_Device({
+                        "name": unifi.name,
+                        "snipe_id": snipe.id,
+                        "model_id": unifi.model_id,
+                        "site": unifi.site_name,
+                        "mac": unifi.mac,
+                    })
+                    match3 += 1
+                    unifi.in_snipe = True
+                    comp.needs_update = True
+                    snipe.used = True
+                    remove_snipes.add(snipe_index)
+                    remove_unifis.add(unifi_index)
+                    comps.append(comp)
+                elif snipe.mac_address is None and snipe.model != unifi.model_id:
+                    ## I think this is obsolete as well
+                    # move device to different list
+                    # this will move most of the unifis to the empty_snipes list
+                    match4 += 1
+                    empty_snipes.add(snipe)
+                    unassigned_unifs.add(unifi)
+                else:
+                    debug.debug("ERR parsing snipes, Crashing")
+                    debug.debug(f"{snipe.id} {unifi.model}")
+                    exit(1)
+            # the unifi doesn't have a snipe asset, need to create it
+            #for snipe in snipes:
+            #    debug.debug(snipe.name, snipe.id, snipe.model)
+    debug.debug("remove_snipes", len(remove_snipes))
+    debug.debug("remove_unifis", len(remove_unifis))
 
     remove_snipes = sorted(remove_snipes, reverse=True)
     remove_unifis = sorted(remove_unifis, reverse=True)
@@ -114,24 +121,40 @@ def search_snipes_for_mac():
         del snipes[snipe]
     for unifi in remove_unifis:
         del unifis[unifi]
-    print("site != site", match1)
-    print("site = site", match2)
-    print("no mac, model = model", match3)
-    print("no mac, model != model", match4)
-    print("snipe.mac != unifi.mac", match5)
-    print("snipes",len(snipes))
-    print("unifis", len(unifis))
+
+    if debug.args.create_new_assets:
+        debug.debug(f"Creating {len(unifis)} assets")
+        for unifi in unifis:
+            snipe = create_asset(unifi.model_id)
+            debug.debug("created asset", snipe.id)
+            comp = Composite_Device({
+                "name": unifi.name,
+                "snipe_id": snipe.id,
+                "model_id": unifi.model_id,
+                "site": unifi.site_name,
+                "mac": unifi.mac
+            })
+            comp.needs_update = True
+            comps.append(comp)
+    else:
+        debug.debug(f"create_new_assets flag not set, skipping creation for {len(unifis)} devices")
+    debug.report(snipes)
+
+    debug.debug("site != site", match1)
+    debug.debug("site = site", match2)
+    debug.debug("no mac, model = model", match3)
+    debug.debug("no mac, model != model", match4)
+    debug.debug("snipe.mac != unifi.mac", match5)
+    debug.debug("snipes",len(snipes))
+    debug.debug("unifis", len(unifis))
+    debug.debug("unassigned_unifs", len(unassigned_unifs))
+    debug.debug("empty_snipes", len(empty_snipes))
+    debug.debug("comps", len(comps))
     return comps
 
-def get_empty_assets(snipes: list[Snipe_Asset]):
-    emp_assets: list[Snipe_Asset] = []
-    for snipe in snipes:
-        if snipe.mac_address is None:
-            emp_assets.append(snipe)
-    return emp_assets
 
 def create_asset(model_id: int = 107, status_id: int = 4):
-    print("creating new asset")
+    debug.debug("creating new asset")
     c = CONFIG()
     conn = Snipe_Connection(c.SNIPE_KEY, c.SNIPE_URL)
     asset = {
@@ -149,34 +172,13 @@ def create_asset(model_id: int = 107, status_id: int = 4):
         })
         return snipe
     else:
-        print("crashing in 'create_asset'")
-        print(p)
+        debug.debug("crashing in 'create_asset'")
+        debug.debug(p)
         exit(1)
 ###
 # takes a Unifi_Device and either finds an asset of the same model without a mac
 # or makes a new one of the appropriate type
 ###
-def create_if_empty(snipes:list[Snipe_Asset], unifi: Unifi_Device):
-    empty_assets = get_empty_assets(snipes)
-    print()
-    comps: list[Composite_Device] = []
-    while empty_assets:
-        for asset in empty_assets:
-            comp = Composite_Device({
-                "name": unifi.name,
-                "snipe_id": asset.id,
-                "model": unifi.model_id,
-                "site": unifi.site_name,
-            })
-            unifi.in_snipe = True # set in_snipe to true so we know it's been dealt with
-            comp.exists_in_snipe = True # set true to indicate the asset exists
-            comp.needs_update = True # the asset was empty, so it needs an update
-            comp.update_mac = True
-            comp.set_mac(unifi.mac)
-            empty_assets.remove(asset)
-    print("no more empty assets")
-    print(len(empty_assets))
-    print(len(comps))
 
 def get_unique_models():
     unifis = get_unifi_unifi()
@@ -187,16 +189,27 @@ def get_unique_models():
             models.append(unifi.model)
             devices.append(unifi)
     for d in devices:
-        print(d)
+        debug.debug(d)
 
-def test():
-    unifis = get_unifi_unifi()
-    snipes = get_unifi_snipe()
-    for unifi in unifis:
-        create_if_empty(snipes, unifi)
-        break
 def testing():
-    search_snipes_for_mac()
+    c = CONFIG()
+    snipe_conn = Snipe_Connection(c.SNIPE_KEY, c.SNIPE_URL)
+    comps = search_snipes_for_mac()
+    update = 0
+    for comp in comps:
+        if comp.needs_update:
+            update += 1
+            data = {
+                "name": comp.name,
+                "status_id": comp.status_id,
+                "_snipeit_mac_address_1": comp.mac,
+                "_snipeit_site_2": comp.site,
+            }
+            debug.debug(comp.name, comp.mac, comp.site)
+            if comp.mac is None:
+                exit(1)
+            snipe_conn.patch(f"hardware/{comp.snipe_id}", data)
+    debug.debug(f"updated {update} devices")
 
 if __name__ == "__main__": 
     testing()

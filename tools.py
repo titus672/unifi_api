@@ -1,10 +1,29 @@
 #!/usr/bin/env python
-import requests,json
+import requests,json, html
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 def pprint(j):
     print(json.dumps(j, indent=4))
+
+class Debug:
+    def __init__(self):
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--debug", help="print debug messages", action="store_true")
+        parser.add_argument("--create_new_assets", help="create new assets in snipe if needed", action="store_true")
+        parser.add_argument("--report", help="report devices not in unifi", action="store_true")
+        self.args = parser.parse_args()
+    def debug(self, *message):
+        if self.args.debug:
+            print(str(message))
+    def report(self, snipes):
+        if self.args.report:
+            print("""........Report.......
+                  the following devices were not found in the configured unifi
+                  controllers. Consider deleting or archiving these devices""")
+            for snipe in snipes:
+                print(snipe.id, snipe.mac_address, snipe.site, snipe.name)
 
 class CONFIG:
     def __init__(self):
@@ -61,6 +80,16 @@ class Snipe_Connection:
         response = requests.request("POST", url, json=payload, headers=headers)
         return {"response": response, "data": json.loads(response.text)}
 
+    def patch(self, endpoint, payload={}):
+        url = self.URL + endpoint
+        
+        headers = {
+            "Accept": "application/json",
+            "Authorization": "Bearer " + self.KEY
+        }
+        response = requests.request("PATCH", url, json=payload, headers=headers)
+        return {"response": response, "data": json.loads(response.text)}
+
 class Composite_Device:
     def __init__(self, data):
         ###
@@ -80,7 +109,7 @@ class Composite_Device:
         self.has_mac_in_snipe = False
         self.empty_model_exists = False
         self.needs_update = False
-
+        self.mac = data.get("mac", None)
         self.snipe_id = data.get("snipe_id", None)
         self.name = data["name"]
         ###
@@ -91,6 +120,7 @@ class Composite_Device:
         # 6 = Deployed
         # sets the appropriate self.status_id based on the site
         ###
+        self.site = data.get("site", None)
         match data.get("site", None):
             case None:
                 # no site, must still be shipping
@@ -107,8 +137,6 @@ class Composite_Device:
         # sets self.model_id to the appropriate asset_model_id
         ### !!! this moved to the unifi device
         self.model_id = data["model_id"]
-    def set_mac(self, mac: str):
-        self.mac = mac
 
 ### if exists in snipe, need to have the id here
 ### self.name, take latest from unifi
@@ -119,10 +147,11 @@ class Snipe_Asset:
         
         # Does this asset need to be updated in Snipe? default to false and
         # update the value later
-        self.update_asset = False 
+        self.update_asset = False
+        self.used = False
 
         self.id = data["id"]
-        self.name = data["name"]
+        self.name = html.unescape(data["name"])
         self.model = data["model"]["id"]
         # 3 : archived
         # 6 : deployed
@@ -131,17 +160,20 @@ class Snipe_Asset:
 
         self.status_label = data["status_label"]["id"]
         
-        if data["custom_fields"]["MAC Address"]["value"] is None:
-            self.mac_address = None
-        
-        else:
-            self.mac_address = data["custom_fields"]["MAC Address"]["value"]
-    
-        if data["custom_fields"]["Site"]["value"] is None:
-            self.site = None
-        
-        else:
-            self.site = data["custom_fields"]["Site"]["value"]
+        self.mac_address = data.get("custom_fields", {}).get("MAC Address", {}).get("value", None)
+
+        #if data["custom_fields"]["MAC Address"]["value"] is None:
+        #    self.mac_address = None
+        #
+        #else:
+        #    self.mac_address = data["custom_fields"]["MAC Address"]["value"]
+
+        self.site = (data.get("custom_fields", {}).get("Site", {}).get("value", None))
+        #if data["custom_fields"]["Site"]["value"] is None:
+        #    self.site = None
+        #
+        #else:
+        #    self.site = data["custom_fields"]["Site"]["value"]
 
 class Unifi_Controller:
     def __init__(self, url: str, username: str, password: str):
