@@ -1,5 +1,7 @@
-from tools import CONFIG, pprint, Unifi_Controller
+#!/usr/bin/env python
+from tools import CONFIG, Snipe_Connection, pprint, Unifi_Controller, get_unifi_snipe
 import json
+from copy import deepcopy
 def main():
     c = CONFIG()
     conn = Unifi_Controller("unifi.streamitnet.com", c.UNIFI_USERNAME, c.UNIFI_PASSWORD)
@@ -20,11 +22,17 @@ def main():
                 print("couldn't find model")
 
 def test():
-    list1 = [1,2,3,4]
-    list2 = [5,6,7,8,9,10]
-    for l in list1:
-        for li in list2:
-            list2.remove(6)
-            print(li)
+    c = CONFIG()
+    conn = Snipe_Connection(c.SNIPE_KEY, c.SNIPE_URL)
+    assets = get_unifi_snipe()
+    assets2 = deepcopy(assets)
+    dups = set()
+    for asset in assets:
+        for asset2 in assets2:
+            if asset2.mac_address == asset.mac_address and asset2.id != asset.id:
+                dups.add(asset)
+    for dup in dups:
+        print(dup.site, dup.name, dup.mac_address)
+    print(len(dups), "dups")
 if __name__ == "__main__":
     test()
