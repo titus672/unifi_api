@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import requests,json, html
+import requests,json, html, os, time
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -204,6 +204,8 @@ class Unifi_Controller:
         elif site.devices != []:
             print("!!!ERROR in get_devices_from_site: list was not empty")
 
+    # function to get wlan from a specific site, probably prefered to use the `collect_all_wlans`
+    # function to collect them all instead
     def get_wlans_from_site(self, site):
         if site.wlans == []:
             wlans = self.get(f"s/{site.site_id}/rest/wlanconf")["data"]
@@ -303,6 +305,8 @@ class Unifi_Device:
                 self.model_id = 119
             case "USL8LP":
                 self.model_id = 120
+            case "U6IW":
+                self.model_id = 101
             case _:
                 print("ERROR matching model_id, crashing")
                 pprint(data)
@@ -346,16 +350,123 @@ def get_unifi_snipe():
             count += 1
     return assets
 
-def test():
+# this function creates a local cache of sites, their devices and wlans.
+# It also checks to make sure the cache isn't too far out of date, currently
+# that's set at 30min.
+def update_local_cache():
     c = CONFIG()
-    controller1 = Unifi_Controller("unifi.streamitnet.com", c.UNIFI_USERNAME, c.UNIFI_PASSWORD)
+    controllers: list[Unifi_Controller] = []
+    controllers.append(Unifi_Controller(c.UNIFI_URLS[0], c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
+    controllers.append(Unifi_Controller(c.UNIFI_URLS[1], c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
 
-    controller1.get_all_sites()
-    controller1.collect_all_devices()
-    controller1.collect_all_wlans()
-    for site in controller1.sites:
-        for wlan in site.wlans:
-            print(wlan["name"])
+    # try updating cache if the file already exists
+    if os.path.exists("unifi_cache.json"):
+        try:
+            with open("unifi_cache.json", 'r+') as cache_handle:
+                #{
+                #    "time": unix_time when written,
+                #    "sites": [{
+                #    "controller": controller,
+                #    "site_name": site_name,
+                #    "devices": [{"device_name": device_name, "mac": mac, "model": model}],
+                #    "wlans": [{
+                #    "name": wlan_name,
+                #    "x_passphrase": wifi_password, 
+                #                }]
+                #}]
+                #}
+                now = time.time()
+                cache = json.load(cache_handle)
+                # update cache if it's over 5m old
+                if (now - cache["time_written"]) < 1800:
+                    print("time is less than 1800")
+                    return cache["sites"]
+                elif (now - cache["time_written"]) >= 1800:
+                    print("time is greater than 1800, updating cache")
+                    sites = []
+                    sites_json = []
+                    for controller in controllers:
+                        controller.get_all_sites()
+                        controller.collect_all_devices()
+                        controller.collect_all_wlans()
+                        #sites.extend(controller.sites)
+                        for site in controller.sites:
+                            devices = []
+                            for device in site.devices:
+                                devices.append({
+                                    "device_name": device.name,
+                                    "mac": device.mac,
+                                    "model": device.model
+                                })
+                            sites_json.append({
+                                "controller": site.controller,
+                                "site_name": site.site_name,
+                                "devices": devices,
+                                "wlans": site.wlans
+                            })
+
+                    new_cache = {
+                        "time_written": now,
+                        "sites": sites_json,
+                    }
+                    cache_handle.seek(0,0)
+                    json.dump(new_cache, cache_handle, indent=2)
+                    return sites
+                    
+        except Exception as e:
+            print("exception in update_local_cache")
+            print(e)
+            exit(1)
+
+    # create and populate the cache
+    elif not os.path.exists("unifi_cache.json"):
+        try:
+            with open("unifi_cache.json", 'w') as cache_handle:
+                now = time.time()
+                sites = []
+                sites_json = []
+                for controller in controllers:
+                    controller.get_all_sites()
+                    controller.collect_all_devices()
+                    controller.collect_all_wlans()
+                    for site in controller.sites:
+                        devices = []
+                        for device in site.devices:
+                            devices.append({
+                                "device_name": device.name,
+                                "mac": device.mac,
+                                "model": device.model
+                            })
+                        sites_json.append({
+                            "controller": site.controller,
+                            "site_name": site.site_name,
+                            "devices": devices,
+                            "wlans": site.wlans
+                        })
+
+                new_cache = {
+                    "time_written": now,
+                    "sites": sites_json,
+                }
+                json.dump(new_cache, cache_handle, indent=2)
+                return sites
+                
+        except Exception as e:
+            print("Error while creating 'unifi_cache.json'")
+            print(e)
+            exit(1)
+    else:
+        print("unknown error occured in update_local_cache,\n couldn't find or create cache file")
+        exit(1)
+
+def test():
+    sites = update_local_cache()
+    wlans = []
+#    for site in sites:
+#        pprint(site)
+#    for wlan in wlans:
+#        #pprint(wlan)
+#        print(wlan)
 
 if __name__ == "__main__":
     test()
