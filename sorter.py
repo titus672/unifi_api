@@ -17,10 +17,10 @@ def sort_files():
     import sys
     search_str = sys.argv[1]
     for unifi in unifi_1_data:
-        if unifi["mac"].upper() == search_str:
+        if search_str in unifi["mac"].upper():
             print(unifi)
     for unifi in unifi_2_data:
-        if unifi["mac"].upper() == search_str:
+        if search_str in unifi["mac"].upper():
             print(unifi)
     #same = []
     #print(type(unifi_1_data))
