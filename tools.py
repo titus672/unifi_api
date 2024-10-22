@@ -356,8 +356,8 @@ def get_unifi_snipe():
 def update_local_cache():
     c = CONFIG()
     controllers: list[Unifi_Controller] = []
-    controllers.append(Unifi_Controller(c.UNIFI_URLS[0], c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
-    controllers.append(Unifi_Controller(c.UNIFI_URLS[1], c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
+    for url in c.UNIFI_URLS:
+        controllers.append(Unifi_Controller(url, c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
 
     # try updating cache if the file already exists
     if os.path.exists("unifi_cache.json"):
@@ -366,13 +366,17 @@ def update_local_cache():
                 #{
                 #    "time": unix_time when written,
                 #    "sites": [{
-                #    "controller": controller,
-                #    "site_name": site_name,
-                #    "devices": [{"device_name": device_name, "mac": mac, "model": model}],
-                #    "wlans": [{
-                #    "name": wlan_name,
-                #    "x_passphrase": wifi_password, 
-                #                }]
+                #       "controller": controller,
+                #       "site_name": site_name,
+                #       "devices": [{
+                #            "device_name": device_name,
+                #            "mac": mac,
+                #            "model": model
+                #           }],
+                #       "wlans": [{
+                #           "name": wlan_name,
+                #           "x_passphrase": wifi_password, 
+                #                   }]
                 #}]
                 #}
                 now = time.time()
@@ -409,8 +413,9 @@ def update_local_cache():
                         "time_written": now,
                         "sites": sites_json,
                     }
-                    cache_handle.seek(0,0)
+                    cache_handle.seek(0)
                     json.dump(new_cache, cache_handle, indent=2)
+                    cache_handle.truncate()
                     return sites
                     
         except Exception as e:
