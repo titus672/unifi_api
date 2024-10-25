@@ -164,6 +164,11 @@ class Unifi_Controller:
     def get(self, endpoint):
         data = self.session.get(self.full_url + endpoint)
         return data.json()
+
+    def post(self, endpoint: str, payload: dict):
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        return self.session.post(self.full_url + "s/" + endpoint, headers=headers,json=payload, verify=False ).json()
+        
     
     def get_all_sites(self):
         self.sites: list[Unifi_Site] = []
