@@ -324,18 +324,16 @@ class Unifi_Device:
 # get all unifi devices from both controllers
 def get_unifi_unifi():
     config = CONFIG()
-    controller1 = Unifi_Controller(config.UNIFI_URLS[0], config.UNIFI_USERNAME, config.UNIFI_PASSWORD)
-    controller1.collect_all_devices()
-    controller2 = Unifi_Controller(config.UNIFI_URLS[1], config.UNIFI_USERNAME, config.UNIFI_PASSWORD)
-    controller2.collect_all_devices()
-    unifi_unifis: list[Unifi_Device] = []
-    for site in controller1.sites:
-        for device in site.devices:
-            unifi_unifis.append(device)
+    controllers = []
+    for url in config.UNIFI_URLS:
+        controllers.append(Unifi_Controller(url, config.UNIFI_USERNAME, config.UNIFI_PASSWORD))
 
-    for site in controller2.sites:
-        for device in site.devices:
-            unifi_unifis.append(device)
+    unifi_unifis: list[Unifi_Device] = []
+    for controller in controllers:
+        controller.collect_all_devices()
+        for site in controller.sites:
+            for device in site.devices:
+                unifi_unifis.append(device)
     return unifi_unifis
 
 # get all unifi assets from snipe, returns a list of [Snipe_Asset]
