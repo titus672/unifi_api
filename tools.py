@@ -385,7 +385,9 @@ def update_local_cache():
                 now = time.time()
                 cache = json.load(cache_handle)
                 # update cache if it's over 5m old
-                if (now - cache["time_written"]) < 1800:
+                #if (now - cache["time_written"]) < 1800:
+                override = True
+                if override:
                     print("time is less than 1800")
                     return cache["sites"]
                 elif (now - cache["time_written"]) >= 1800:
