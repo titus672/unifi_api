@@ -1,33 +1,28 @@
 #!/usr/bin/env python3
-from tools import update_local_cache, pprint
+from tools import update_local_cache, find_mac, find_ssid
 import argparse
-# this file is intended to be a general purpose CLI tool to search unifi controllers
-# for device macs or ssid's
+# this file is intended to be a general purpose CLI tool to search unifi
+# controllers for device macs or ssid's
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Search unifi controllers for a device/site based on mac address or SSID")
+    parser = argparse.ArgumentParser(
+        description="Search unifi controllers for a device/site based on mac address or SSID")
     exclusive_group = parser.add_mutually_exclusive_group()
-    exclusive_group.add_argument("-fm", "--find-mac", help="find device by MAC Address")
-    exclusive_group.add_argument("-fs", "--find-ssid", help="find site by SSID")
+    exclusive_group.add_argument(
+        "-fm", "--find-mac", help="find device by MAC Address")
+    exclusive_group.add_argument(
+        "-fs", "--find-ssid", help="find site by SSID")
+    parser.add_argument(
+        "-u", "--update", help="update local cache", action="store_true")
     args = parser.parse_args()
-    
-    sites: list = update_local_cache()
+
+    sites: list = update_local_cache(args.update)
 
     if args.find_mac:
-        print(f"Searching unifi devices for {args.find_mac}\n")
-        for site in sites:
-            for device in site["devices"]:
-                if args.find_mac.upper() in device["mac"]:
-                    print(device["mac"], "at", site["site_name"])
+        find_mac(args.find_mac, sites)
     elif args.find_ssid:
-        print(f"searching unifi sites for {args.find_ssid}\n")
-        for site in sites:
-            for wlan in site["wlans"]:
-                if args.find_ssid.upper() in wlan["name"].upper():
-                    print(f"found SSID '{args.find_ssid}' at {site['site_name']} on {site['controller']}")
-
-
-    
+        find_ssid(args.find_ssid, sites)
 
 
 if __name__ == "__main__":

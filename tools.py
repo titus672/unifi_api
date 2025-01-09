@@ -1,22 +1,33 @@
 #!/usr/bin/env python
-import requests,json, html, os, time
+import requests
+import json
+import html
+import os
+import time
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
 def pprint(j):
     print(json.dumps(j, indent=4))
+
 
 class Debug:
     def __init__(self):
         import argparse
         parser = argparse.ArgumentParser()
-        parser.add_argument("--debug", help="print debug messages", action="store_true")
-        parser.add_argument("--create_new_assets", help="create new assets in snipe if needed", action="store_true")
-        parser.add_argument("--report", help="report devices not in unifi", action="store_true")
+        parser.add_argument(
+            "--debug", help="print debug messages", action="store_true")
+        parser.add_argument(
+            "--create_new_assets", help="create new assets in snipe if needed", action="store_true")
+        parser.add_argument(
+            "--report", help="report devices not in unifi", action="store_true")
         self.args = parser.parse_args()
+
     def debug(self, *message):
         if self.args.debug:
             print(str(message))
+
     def report(self, snipes):
         if self.args.report:
             print("""........Report.......
@@ -24,6 +35,7 @@ class Debug:
                   controllers. Consider deleting or archiving these devices""")
             for snipe in snipes:
                 print(snipe.id, snipe.mac_address, snipe.site, snipe.name)
+
 
 class CONFIG:
     def __init__(self):
@@ -37,6 +49,7 @@ class CONFIG:
 
     def __str__(self):
         return (f"{self.UNIFI_USERNAME}\n{self.UNIFI_PASSWORD}\n{self.UNIFI_URLS}")
+
 
 class Snipe_Connection:
     def __init__(self, key: str, url: str):
@@ -64,7 +77,7 @@ class Snipe_Connection:
             "Authorization": "Bearer " + self.KEY
         }
 
-        ### This needs to be redone to match the post method, returning a wrapped object
+        # This needs to be redone to match the post method, returning a wrapped object
         response = requests.request("PUT", url, json=payload, headers=headers)
         return {"response": response, "data": json.loads(response.text)}
 
@@ -82,13 +95,15 @@ class Snipe_Connection:
 
     def patch(self, endpoint, payload={}):
         url = self.URL + endpoint
-        
+
         headers = {
             "Accept": "application/json",
             "Authorization": "Bearer " + self.KEY
         }
-        response = requests.request("PATCH", url, json=payload, headers=headers)
+        response = requests.request(
+            "PATCH", url, json=payload, headers=headers)
         return {"response": response, "data": json.loads(response.text)}
+
 
 class Composite_Device:
     def __init__(self, data):
@@ -126,9 +141,10 @@ class Composite_Device:
 
         self.model_id = data["model_id"]
 
+
 class Snipe_Asset:
     def __init__(self, data):
-        
+
         # Does this asset need to be updated in Snipe? default to false and
         # update the value later
         self.used = False
@@ -142,19 +158,24 @@ class Snipe_Asset:
         # 5 : stock
 
         self.status_label = data["status_label"]["id"]
-        
-        self.mac_address = data.get("custom_fields", {}).get("MAC Address", {}).get("value", None)
 
-        self.site = (data.get("custom_fields", {}).get("Site", {}).get("value", None))
+        self.mac_address = data.get("custom_fields", {}).get(
+            "MAC Address", {}).get("value", None)
+
+        self.site = (data.get("custom_fields", {}).get(
+            "Site", {}).get("value", None))
+
 
 class Unifi_Controller:
     def __init__(self, url: str, username: str, password: str):
         self.url = url
         self.full_url = f"https://{url}:8443/api/"
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        headers = {"Accept": "application/json",
+                   "Content-Type": "application/json"}
         data = {"username": username, "password": password}
         self.session = requests.Session()
-        self.session.post(self.full_url + "login", headers=headers, json=data, verify=False)
+        self.session.post(self.full_url + "login",
+                          headers=headers, json=data, verify=False)
         self.sites = []
 
     def __del__(self):
@@ -166,19 +187,19 @@ class Unifi_Controller:
         return data.json()
 
     def post(self, endpoint: str, payload: dict):
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        return self.session.post(self.full_url + "s/" + endpoint, headers=headers,json=payload, verify=False ).json()
-        
-    
+        headers = {"Accept": "application/json",
+                   "Content-Type": "application/json"}
+        return self.session.post(self.full_url + "s/" + endpoint, headers=headers, json=payload, verify=False).json()
+
     def get_all_sites(self):
         self.sites: list[Unifi_Site] = []
         data = self.get("self/sites")
         for site in data["data"]:
             self.sites.append(Unifi_Site({
-                                          "site_id": site["name"], 
-                                          "site_name": site["desc"], 
-                                          "controller": self.url
-                                          }))
+                "site_id": site["name"],
+                "site_name": site["desc"],
+                "controller": self.url
+            }))
 
     def get_devices_from_site(self, site):
         # make sure devices haven't been retrieved already
@@ -187,22 +208,22 @@ class Unifi_Controller:
             for device in data:
                 # some devices don't have names, this just replaces the name
                 # with the model if it's empty
-                if "name" in  device:
+                if "name" in device:
                     site.devices.append(Unifi_Device({
-                                                      "name": device["name"],
-                                                      "mac": device["mac"], 
-                                                      "model": device["model"],
-                                                      "site_name": site.site_name, 
-                                                      "controller": self.url
-                                                      }))
+                        "name": device["name"],
+                        "mac": device["mac"],
+                        "model": device["model"],
+                        "site_name": site.site_name,
+                        "controller": self.url
+                    }))
                 elif "name" not in device:
                     site.devices.append(Unifi_Device({
-                                                      "name": device["model"], 
-                                                      "mac": device["mac"], 
-                                                      "model": device["model"],
-                                                      "site_name": site.site_name, 
-                                                      "controller": self.url
-                                                      }))
+                        "name": device["model"],
+                        "mac": device["mac"],
+                        "model": device["model"],
+                        "site_name": site.site_name,
+                        "controller": self.url
+                    }))
                 else:
                     print("!!!ERROR processing devices in get_device_from_site")
                     exit(1)
@@ -227,17 +248,18 @@ class Unifi_Controller:
             print("collecting sites for devices")
 
         for site in self.sites:
-            self.get_devices_from_site(site) 
-        
+            self.get_devices_from_site(site)
+
     def collect_all_wlans(self):
         # collect all wlans from all sites
-        #check for self.sites and populate if empty
+        # check for self.sites and populate if empty
         if self.sites == []:
             self.get_all_sites()
             print("collecting sites for wlan")
 
         for site in self.sites:
             self.get_wlans_from_site(site)
+
 
 class Unifi_Site:
     def __init__(self, data):
@@ -246,9 +268,10 @@ class Unifi_Site:
         self.site_name = data["site_name"]
         self.devices = []
         self.wlans = []
-    
+
     def __str__(self):
         return f"site_id = {self.site_id}\nsite_name = {self.site_name}\ncontroller={self.controller}\n"
+
 
 class Unifi_Device:
     def __init__(self, data):
@@ -287,7 +310,7 @@ class Unifi_Device:
             case "US8P60":
                 self.model_id = 115
             case "U7NHD":
-                self.model_id =  95
+                self.model_id = 95
             case "U7IW":
                 self.model_id = 116
             case "UAPL6":
@@ -312,21 +335,31 @@ class Unifi_Device:
                 self.model_id = 120
             case "U6IW":
                 self.model_id = 101
+            case "UKPW":
+                self.model_id = 123
+            case "U7PRO":
+                self.model_id = 147
+            case "USM8P":
+                self.model_id = 134
             case _:
                 print("ERROR matching model_id, crashing")
                 pprint(data)
-                #import pdb
-                #pdb.set_trace()
+                # import pdb
+                # pdb.set_trace()
                 exit(1)
+
     def __str__(self):
         return f"name={self.name}\nmac={self.mac}\nsite_name={self.site_name}\ncontroller={self.controller}\nmodel={self.model}\n"
 
 # get all unifi devices from both controllers
+
+
 def get_unifi_unifi():
     config = CONFIG()
     controllers = []
     for url in config.UNIFI_URLS:
-        controllers.append(Unifi_Controller(url, config.UNIFI_USERNAME, config.UNIFI_PASSWORD))
+        controllers.append(Unifi_Controller(
+            url, config.UNIFI_USERNAME, config.UNIFI_PASSWORD))
 
     unifi_unifis: list[Unifi_Device] = []
     for controller in controllers:
@@ -337,6 +370,8 @@ def get_unifi_unifi():
     return unifi_unifis
 
 # get all unifi assets from snipe, returns a list of [Snipe_Asset]
+
+
 def get_unifi_snipe():
     config = CONFIG()
     snipe = Snipe_Connection(config.SNIPE_KEY, config.SNIPE_URL)
@@ -346,7 +381,8 @@ def get_unifi_snipe():
     count = 0
     assets: list[Snipe_Asset] = []
     while offset <= total:
-        data = snipe.get("hardware", f"category_id=3&limit=100&offset={offset}")
+        data = snipe.get(
+            "hardware", f"category_id=3&limit=100&offset={offset}")
         offset += 100
         for d in data["rows"]:
             assets.append(Snipe_Asset(d))
@@ -356,17 +392,20 @@ def get_unifi_snipe():
 # this function creates a local cache of sites, their devices and wlans.
 # It also checks to make sure the cache isn't too far out of date, currently
 # that's set at 30min.
-def update_local_cache():
+
+
+def update_local_cache(update):
     c = CONFIG()
     controllers: list[Unifi_Controller] = []
     for url in c.UNIFI_URLS:
-        controllers.append(Unifi_Controller(url, c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
+        controllers.append(Unifi_Controller(
+            url, c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
 
     # try updating cache if the file already exists
     if os.path.exists("unifi_cache.json"):
         try:
             with open("unifi_cache.json", 'r+') as cache_handle:
-                #{
+                # {
                 #    "time": unix_time when written,
                 #    "sites": [{
                 #       "controller": controller,
@@ -378,27 +417,27 @@ def update_local_cache():
                 #           }],
                 #       "wlans": [{
                 #           "name": wlan_name,
-                #           "x_passphrase": wifi_password, 
+                #           "x_passphrase": wifi_password,
                 #                   }]
-                #}]
-                #}
+                # }]
+                # }
                 now = time.time()
                 cache = json.load(cache_handle)
                 # update cache if it's over 5m old
-                #if (now - cache["time_written"]) < 1800:
-                override = True
-                if override:
-                    print("time is less than 1800")
-                    return cache["sites"]
-                elif (now - cache["time_written"]) >= 1800:
-                    print("time is greater than 1800, updating cache")
+                # if (now - cache["time_written"]) < 1800:
+                # if !update:
+                #    print("time is less than 1800")
+                #    return cache["sites"]
+                # elif (now - cache["time_written"]) >= 1800:
+                if update:
+                    print("updating cache")
                     sites = []
                     sites_json = []
                     for controller in controllers:
                         controller.get_all_sites()
                         controller.collect_all_devices()
                         controller.collect_all_wlans()
-                        #sites.extend(controller.sites)
+                        # sites.extend(controller.sites)
                         for site in controller.sites:
                             devices = []
                             for device in site.devices:
@@ -422,7 +461,9 @@ def update_local_cache():
                     json.dump(new_cache, cache_handle, indent=2)
                     cache_handle.truncate()
                     return sites
-                    
+                else:
+                    return cache["sites"]
+
         except Exception as e:
             print("exception in update_local_cache")
             print(e)
@@ -460,7 +501,7 @@ def update_local_cache():
                 }
                 json.dump(new_cache, cache_handle, indent=2)
                 return sites
-                
+
         except Exception as e:
             print("Error while creating 'unifi_cache.json'")
             print(e)
@@ -469,14 +510,27 @@ def update_local_cache():
         print("unknown error occured in update_local_cache,\n couldn't find or create cache file")
         exit(1)
 
+
+def find_mac(mac, sites):
+    print(f"Searching unifi devices for {mac}\n")
+    for site in sites:
+        for device in site["devices"]:
+            if mac.upper() in device["mac"]:
+                print(device["mac"], "at", site["site_name"])
+
+
+def find_ssid(ssid, sites):
+    print(f"searching unifi sites for {ssid}\n")
+    for site in sites:
+        for wlan in site["wlans"]:
+            if ssid.upper() in wlan["name"].upper():
+                print(f"found SSID '{ssid}' at {
+                    site['site_name']} on {site['controller']}")
+
+
 def test():
-    sites = update_local_cache()
-    wlans = []
-#    for site in sites:
-#        pprint(site)
-#    for wlan in wlans:
-#        #pprint(wlan)
-#        print(wlan)
+    print("run toolbox.py instead")
+
 
 if __name__ == "__main__":
     test()
