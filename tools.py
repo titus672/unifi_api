@@ -530,8 +530,8 @@ def find_ssid(ssid, sites):
     for site in sites:
         for wlan in site["wlans"]:
             if ssid.upper() in wlan["name"].upper():
-                print(f"found SSID '{ssid}' at {
-                    site['site_name']} on {site['controller']}")
+                print(f"found SSID '{ssid}' at" +
+                      f"{site['site_name']} on {site['controller']}")
 
 
 def find_duplicates(sites):
