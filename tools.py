@@ -351,6 +351,12 @@ class Unifi_Device:
     def __str__(self):
         return f"name={self.name}\nmac={self.mac}\nsite_name={self.site_name}\ncontroller={self.controller}\nmodel={self.model}\n"
 
+
+# class site_map:
+#     def __init__(self, sites):
+#
+#         for site in sites:
+
 # get all unifi devices from both controllers
 
 
@@ -395,11 +401,6 @@ def get_unifi_snipe():
 
 
 def update_local_cache(update):
-    c = CONFIG()
-    controllers: list[Unifi_Controller] = []
-    for url in c.UNIFI_URLS:
-        controllers.append(Unifi_Controller(
-            url, c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
 
     # try updating cache if the file already exists
     if os.path.exists("unifi_cache.json"):
@@ -430,6 +431,11 @@ def update_local_cache(update):
                 #    return cache["sites"]
                 # elif (now - cache["time_written"]) >= 1800:
                 if update:
+                    c = CONFIG()
+                    controllers: list[Unifi_Controller] = []
+                    for url in c.UNIFI_URLS:
+                        controllers.append(Unifi_Controller(
+                            url, c.UNIFI_USERNAME, c.UNIFI_PASSWORD))
                     print("updating cache")
                     sites = []
                     sites_json = []
@@ -526,6 +532,19 @@ def find_ssid(ssid, sites):
             if ssid.upper() in wlan["name"].upper():
                 print(f"found SSID '{ssid}' at {
                     site['site_name']} on {site['controller']}")
+
+
+def find_duplicates(sites):
+    print("Searching for duplicates\n")
+    devices = []
+    duplicates = []
+    for site in sites:
+        for device in site["devices"]:
+            if device["mac"] in devices:
+                print("Duplicate")
+                duplicates.append(device)
+            else:
+                devices.append(device["mac"])
 
 
 def test():
