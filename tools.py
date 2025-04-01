@@ -343,6 +343,8 @@ class Unifi_Device:
                 self.model_id = 134
             case "UDMA69B":
                 self.model_id = 154
+            case "UAPA697":
+                self.model_id = 146
             case _:
                 print("ERROR matching model_id, crashing")
                 pprint(data)
