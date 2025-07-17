@@ -1,0 +1,9 @@
+{
+  "UNIFI_USERNAME": "admin",
+  "UNIFI_PASSWORD": "",
+  "UNIFI_URLS": ["unifi.example.com", "unifi-2.example.com"],
+  "SNIPE_CON_KEY": "",
+  "SNIPE_CON_URL": "",
+  "UI_API_KEY": "",
+  "DISCORD_WEBHOOK": ""
+}

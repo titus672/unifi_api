@@ -13,9 +13,15 @@ from tools import Snipe_Connection, pprint, get_unifi_snipe, get_unifi_unifi, Sn
 # it there for the moment.
 ###
 debug = Debug()
+
+
 def search_snipes_for_mac():
     unifis = get_unifi_unifi()
     snipes = get_unifi_snipe()
+    for unifi in unifis:
+        if unifi.mac is None:
+            print("no mac for ", unifi)
+            exit(1)
     comps: list[Composite_Device] = []
     remove_snipes = set()
     remove_unifis = set()
@@ -30,7 +36,7 @@ def search_snipes_for_mac():
     match5 = 0
     for unifi_index, unifi in enumerate(unifis):
         for snipe_index, snipe in enumerate(snipes):
-            if snipe.used == False:
+            if snipe.used is False:
                 if snipe.mac_address is not None:
                     if snipe.mac_address == unifi.mac:
                         # deal with matching macs
@@ -67,14 +73,14 @@ def search_snipes_for_mac():
                             remove_unifis.add(unifi_index)
                             comps.append(comp)
                             break
-                    #elif snipe.mac_address != unifi.mac:
+                    # elif snipe.mac_address != unifi.mac:
                         # I think I can remove this one if I move all the logic to
                         # this set of loops
                     #    ...
-                        #match5 += 1
-                        #empty_snipes.add(snipe)
-                        #unassigned_unifs.add(unifi)
-                    #else:
+                        # match5 += 1
+                        # empty_snipes.add(snipe)
+                        # unassigned_unifs.add(unifi)
+                    # else:
                     #    debug.debug("Err stopping")
                     #    exit(1)
                 elif snipe.mac_address is None and snipe.model == unifi.model_id:
@@ -93,7 +99,7 @@ def search_snipes_for_mac():
                     remove_unifis.add(unifi_index)
                     comps.append(comp)
                 elif snipe.mac_address is None and snipe.model != unifi.model_id:
-                    ## I think this is obsolete as well
+                    # I think this is obsolete as well
                     # move device to different list
                     # this will move most of the unifis to the empty_snipes list
                     match4 += 1
@@ -104,7 +110,7 @@ def search_snipes_for_mac():
                     debug.debug(f"{snipe.id} {unifi.model}")
                     exit(1)
             # the unifi doesn't have a snipe asset, need to create it
-            #for snipe in snipes:
+            # for snipe in snipes:
             #    debug.debug(snipe.name, snipe.id, snipe.model)
     debug.debug("remove_snipes", len(remove_snipes))
     debug.debug("remove_unifis", len(remove_unifis))
@@ -139,7 +145,7 @@ def search_snipes_for_mac():
     debug.debug("no mac, model = model", match3)
     debug.debug("no mac, model != model", match4)
     debug.debug("snipe.mac != unifi.mac", match5)
-    debug.debug("snipes",len(snipes))
+    debug.debug("snipes", len(snipes))
     debug.debug("unifis", len(unifis))
     debug.debug("unassigned_unifs", len(unassigned_unifs))
     debug.debug("empty_snipes", len(empty_snipes))
@@ -147,6 +153,8 @@ def search_snipes_for_mac():
     return comps
 
 # creates an asset(snipe) with the appropriate model and status
+
+
 def create_asset(model_id: int = 107, status_id: int = 4):
     debug.debug("creating new asset")
     c = CONFIG()
@@ -161,14 +169,15 @@ def create_asset(model_id: int = 107, status_id: int = 4):
         snipe = Snipe_Asset({
             "id": p["payload"]["id"],
             "name": p["payload"]["name"],
-            "model": { "id": p["payload"]["id"] },
-            "status_label": { "id": p["payload"]["status_id"] },
+            "model": {"id": p["payload"]["id"]},
+            "status_label": {"id": p["payload"]["status_id"]},
         })
         return snipe
     else:
         debug.debug("crashing in 'create_asset'")
         debug.debug(p)
         exit(1)
+
 
 def main():
     c = CONFIG()
@@ -190,5 +199,6 @@ def main():
             snipe_conn.patch(f"hardware/{comp.snipe_id}", data)
     debug.debug(f"updated {update} devices")
 
-if __name__ == "__main__": 
+
+if __name__ == "__main__":
     main()

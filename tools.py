@@ -4,6 +4,7 @@ import json
 import html
 import os
 import time
+import tomllib
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -19,7 +20,7 @@ class Debug:
         parser.add_argument(
             "--debug", help="print debug messages", action="store_true")
         parser.add_argument(
-            "--create_new_assets", help="create new assets in snipe if needed", action="store_true")
+            "--create-new-assets", help="create new assets in snipe if needed", action="store_true")
         parser.add_argument(
             "--report", help="report devices not in unifi", action="store_true")
         self.args = parser.parse_args()
@@ -36,6 +37,11 @@ class Debug:
             for snipe in snipes:
                 print(snipe.id, snipe.mac_address, snipe.site, snipe.name)
 
+    def discord(self, data):
+        config = CONFIG()
+        contents = {"content": data}
+        requests.post(config.DISCORD_WEBHOOK, json=contents)
+
 
 class CONFIG:
     def __init__(self):
@@ -46,6 +52,8 @@ class CONFIG:
         self.UNIFI_URLS = self.config["UNIFI_URLS"]
         self.SNIPE_KEY = self.config["SNIPE_CON_KEY"]
         self.SNIPE_URL = self.config["SNIPE_CON_URL"]
+        self.UI_API_KEY = self.config.get("UI_API_KEY", "no_api_key")
+        self.DISCORD_WEBHOOK = self.config.get("DISCORD_WEBHOOK", "no_discord_webhook")
 
     def __str__(self):
         return (f"{self.UNIFI_USERNAME}\n{self.UNIFI_PASSWORD}\n{self.UNIFI_URLS}")
@@ -261,6 +269,18 @@ class Unifi_Controller:
             self.get_wlans_from_site(site)
 
 
+class Unifi_SSO:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.url = "https://api.ui.com/v1/"
+        self.headers = {"X-API-Key": self.api_key}
+
+    def get(self, endpoint):
+        url = self.url + endpoint
+        response = requests.get(url, headers=self.headers)
+        return response.json()
+
+
 class Unifi_Site:
     def __init__(self, data):
         self.controller = data["controller"]
@@ -278,92 +298,66 @@ class Unifi_Device:
         self.name = data["name"]
         self.mac = data["mac"].upper()
         self.site_name = data["site_name"]
-        self.controller = data["controller"]
+        self.controller = data.get("controller", "no_controller")
         self.model = data["model"]
-        match self.model:
-            case "U7MSH":
-                self.model_id = 93
-            case "U2O":
-                self.model_id = 105
-            case "U7LT":
-                self.model_id = 75
-            case "U2HSR":
-                self.model_id = 106
-            case "BZ2":
-                self.model_id = 107
-            case "BZ2LR":
-                self.model_id = 108
-            case "U7P":
-                self.model_id = 109
-            case "UDMB":
-                self.model_id = 92
-            case "US16P150":
-                self.model_id = 110
-            case "U7LR":
-                self.model_id = 111
-            case "USF5P":
-                self.model_id = 99
-            case "U7PG2":
-                self.model_id = 113
-            case "US8P150":
-                self.model_id = 114
-            case "US8P60":
-                self.model_id = 115
-            case "U7NHD":
-                self.model_id = 95
-            case "U7IW":
-                self.model_id = 116
-            case "UAPL6":
-                self.model_id = 96
-            case "U6M":
-                self.model_id = 78
-            case "USMINI":
-                self.model_id = 117
-            case "UALR6v2":
-                self.model_id = 98
-            case "UAP6MP":
-                self.model_id = 97
-            case "UAL6":
-                self.model_id = 79
-            case "USL24":
-                self.model_id = 118
-            case "U6EXT":
-                self.model_id = 94
-            case "USAGGPRO":
-                self.model_id = 119
-            case "USL8LP":
-                self.model_id = 120
-            case "U6IW":
-                self.model_id = 101
-            case "UKPW":
-                self.model_id = 123
-            case "U7PRO":
-                self.model_id = 147
-            case "USM8P":
-                self.model_id = 134
-            case "UDMA69B":
-                self.model_id = 154
-            case "UAPA697":
-                self.model_id = 146
-            case "UACCMPOEAF":
-                self.model_id = 139
-            case "UAPA693":
-                self.model_id = 156
-            case _:
-                print("ERROR matching model_id, crashing")
-                pprint(data)
-                # import pdb
-                # pdb.set_trace()
-                exit(1)
+        try:
+            self.model_id = map_model_id(self.model)
+        except Exception as e:
+            print(f"ERROR {e} matching model_id, crashing")
+            pprint(data)
+            message = f"Fatal Error,\nMissing model_id\nPlease add model to models.toml\nname={self.name}\nmac={self.mac}\nsite_name={self.site_name}\ncontroller={self.controller}\nmodel={self.model}\n"
+            debug = Debug()
+            debug.discord(message)
+            # import pdb
+            # pdb.set_trace()
+            exit(1)
 
     def __str__(self):
         return f"name={self.name}\nmac={self.mac}\nsite_name={self.site_name}\ncontroller={self.controller}\nmodel={self.model}\n"
 
 
+def format_mac_with_colons(mac_string):
+    """Converts a 12-character MAC address to one with colons.
+
+    Args:
+      mac_string: A string like '001A2B3C4D5E'.
+
+    Returns:
+      A string formatted as '00:1A:2B:3C:4D:5E'.
+    """
+    # Ensure the string is uppercase
+    mac_string = mac_string.upper()
+
+    # Slice the string into 2-character chunks and join them with colons
+    return ':'.join(mac_string[i:i + 2] for i in range(0, 12, 2))
+
+
+def map_model_id(model):
+    with open("models.toml", "rb") as f:
+        models = tomllib.load(f)
+        return models[model]
+
 # class site_map:
 #     def __init__(self, sites):
 #
 #         for site in sites:
+
+
+def get_sso_devices():
+    config = CONFIG()
+    sso = Unifi_SSO(config.UI_API_KEY)
+    data = sso.get("devices")
+    unifis = []
+    for devices in data["data"]:
+        for device in devices["devices"]:
+            data = {
+                "name": device["name"],
+                "site_name": devices["hostName"],
+                "model": device["shortname"].replace(' ', '').upper(),
+                "mac": format_mac_with_colons(device["mac"])
+            }
+            unifis.append(Unifi_Device(data))
+    return unifis
 
 # get all unifi devices from both controllers
 
@@ -381,6 +375,8 @@ def get_unifi_unifi():
         for site in controller.sites:
             for device in site.devices:
                 unifi_unifis.append(device)
+    for device in get_sso_devices():
+        unifi_unifis.append(device)
     return unifi_unifis
 
 # get all unifi assets from snipe, returns a list of [Snipe_Asset]
@@ -555,9 +551,43 @@ def find_duplicates(sites):
                 devices.append(device["mac"])
 
 
-def test():
+def redirect_to_binary():
     print("run toolbox.py instead")
 
 
+def csv_writer():
+    config = CONFIG()
+    sso = Unifi_SSO(config.UI_API_KEY)
+    data = sso.get("devices")["data"]
+    import csv
+    import time
+    csv_rows = [["Hostname", "MAC"]]
+    for host in data:
+        devices = host["devices"]
+        for device in devices:
+            csv_rows.append([host.get("hostName", "N/A"), device["mac"].lower()])
+    with open(f"csv_export-{time.time()}.csv", 'w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerows(csv_rows)
+
+
+def list_asset_models():
+    config = CONFIG()
+    snipe_conn = Snipe_Connection(config.SNIPE_KEY, config.SNIPE_URL)
+    models = snipe_conn.get("models?category_id=3")
+    pprint(models)
+
+
+def test():
+    config = CONFIG()
+    sso = Unifi_SSO(config.UI_API_KEY)
+
+    devices = sso.get("devices")
+    pprint(devices)
+    # for d in devices["data"]:
+    #    print(d["hostname"])
+    #    pprint(d["devices"])
+
+
 if __name__ == "__main__":
-    test()
+    redirect_to_binary()
