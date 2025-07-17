@@ -4,7 +4,7 @@ import json
 import html
 import os
 import time
-import tomllib
+import tomli
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -334,7 +334,7 @@ def format_mac_with_colons(mac_string):
 
 def map_model_id(model):
     with open("models.toml", "rb") as f:
-        models = tomllib.load(f)
+        models = tomli.load(f)
         return models[model]
 
 # class site_map:
