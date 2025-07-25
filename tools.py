@@ -39,7 +39,7 @@ class Debug:
 
     def discord(self, data):
         config = CONFIG()
-        contents = {"content": data}
+        contents = {"content": str(data)}
         requests.post(config.DISCORD_WEBHOOK, json=contents)
 
 
