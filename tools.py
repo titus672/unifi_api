@@ -37,9 +37,12 @@ class Debug:
             for snipe in snipes:
                 print(snipe.id, snipe.mac_address, snipe.site, snipe.name)
 
-    def discord(self, data):
+    def discord(self, data, username="unifi_tools"):
         config = CONFIG()
-        contents = {"content": str(data)}
+        contents = {
+            "content": str(data),
+            "username": username,
+        }
         requests.post(config.DISCORD_WEBHOOK, json=contents)
 
 
@@ -307,7 +310,7 @@ class Unifi_Device:
             pprint(data)
             message = f"Fatal Error,\nMissing model_id\nPlease add model to models.toml\nname={self.name}\nmac={self.mac}\nsite_name={self.site_name}\ncontroller={self.controller}\nmodel={self.model}\n"
             debug = Debug()
-            debug.discord(message)
+            debug.discord(message, "debug_snipe")
             # import pdb
             # pdb.set_trace()
             exit(1)
